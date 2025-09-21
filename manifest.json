@@ -1,6 +1,6 @@
 {
   "name": "RMS Sorting Assistant",
-  "short_name": "Sorting",
+  "short_name": "RMS SA",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
