@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RMS Palakkad Sorting Assistant</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        header {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+        
+        .logo {
+            width: 120px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #d9534f;
+            margin: 0;
+            font-size: 24px;
+        }
+
+        header p {
+            margin: 5px 0 0;
+            color: #777;
+            font-size: 14px;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex-grow: 1;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 12px 15px; /* Adjusted padding for size */
+            font-size: 16px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            height: 48px; /* Matching button height */
+            transition: border-color: 0.3s;
+        }
+
+        #searchInput:focus {
+            outline: none;
+            border-color: #d9534f;
+        }
+        
+        /* --- UPDATED STYLES FOR SMALLER ACTION BUTTONS --- */
+        .action-btn {
+            color: white;
+            padding: 0 12px;
+            height: 48px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            flex-shrink: 0; /* Prevent buttons from shrinking */
+        }
+        .scan-btn {
+            background-color: #007bff;
+        }
+        .scan-btn:hover {
+            background-color: #0056b3;
+        }
+        .search-btn {
+            background-color: #28a745; /* Green color for search */
+        }
+        .search-btn:hover {
+            background-color: #218838;
+        }
+        #imageUpload {
+            display: none;
+        }
+        #ocr-status {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #555;
+            min-height: 20px;
+        }
+
+        .suggestions-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .suggestion-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            text-align: left;
+            line-height: 1.4;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .suggestion-item .pincode {
+            font-weight: bold;
+            color: #d9534f;
+        }
+
+        .suggestion-item .place {
+            color: #333;
+        }
+        
+        .suggestion-item .place small {
+            color: #777;
+            margin-left: 5px;
+        }
+
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border: 1px dashed #ccc;
+            border-radius: 5px;
+            min-height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .initial-message {
+            color: #888;
+        }
+
+        .result-item {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+            padding: 10px;
+            line-height: 1.5;
+            width: 100%;
+        }
+
+        .result-item .location {
+            font-weight: normal;
+            font-size: 16px;
+            color: #555;
+            display: block;
+        }
+
+        .result-item .error {
+            color: #c0392b;
+            font-weight: normal;
+        }
+        
+        .visual-guide {
+            margin-top: 20px;
+            font-size: 14px;
+            font-weight: normal;
+            color: #555;
+        }
+        .grid-container {
+            display: grid;
+            gap: 4px;
+            padding: 4px;
+            background-color: #ccc;
+            border-radius: 4px;
+            margin: 5px auto 0;
+            width: fit-content;
+        }
+        .grid-cell {
+            background-color: #fff;
+            border-radius: 3px;
+            height: 40px;
+            width: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+        }
+
+        .grid-left-side .grid-cell { background-color: #eaf6ff; }
+        .grid-front-side .grid-cell { background-color: #e8f5e9; }
+        .grid-right-side .grid-cell { background-color: #fffde7; }
+        
+        .grid-cell.highlight {
+            background-color: #d9534f;
+            color: white;
+        }
+
+        footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <img src="https://upload.wikimedia.org/wikipedia/en/3/32/India_Post.svg" alt="India Post Logo" class="logo">
+            <h1>RMS Palakkad Sorting Assistant</h1>
+            <p>Enter Pincode or Place Name below</p>
+        </header>
+        
+        <div class="search-container">
+            <div class="search-wrapper">
+                <input type="text" id="searchInput" placeholder="e.g., Kavasery or 671121..." autocomplete="off">
+                <div id="suggestionsBox" class="suggestions-box"></div>
+            </div>
+            <label for="imageUpload" class="action-btn scan-btn" title="Scan Address from Image">📷</label>
+            <input type="file" id="imageUpload" accept="image/*" capture="environment">
+            <button id="googleSearchBtn" class="action-btn search-btn" title="Search on Google">🔎</button>
+        </div>
+        <div id="ocr-status"></div>
+        
+        <div id="results">
+            <p class="initial-message">Your sorting location will appear here.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA (SECTION A, B, C for PALAKKAD RMS) ---
+        const sortingData = [
+         // Sections A, B, C data...
+         { pincode: "678612", mainPlace: "PARALI", subPlaces: "KINAVALLUR TENUR", section: "A", side: "Left Side", col: 1, row: 1 }, { pincode: "678642", mainPlace: "MANNUR", subPlaces: "KILAKKUMBRA NAGARIPURAM", section: "A", side: "Left Side", col: 2, row: 1 }, { pincode: "678543", mainPlace: "KAVASSERY", subPlaces: "KAZHANI PADUR VAVULLIAPURAM", section: "A", side: "Left Side", col: 3, row: 1 }, { pincode: "678613", mainPlace: "MANKARA", subPlaces: "MANKURISSI KALLUR", section: "A", side: "Left Side", col: 1, row: 2 }, { pincode: "678641", mainPlace: "KERALASSERY", subPlaces: "KUNDALASSERI THADUKKASSERI VADASSERI", section: "A", side: "Left Side", col: 2, row: 2 }, { pincode: "678572", mainPlace: "KOTTAYI", subPlaces: "CHERUKULAM KARIYANKODE PULINELLI VARODE", section: "A", side: "Left Side", col: 3, row: 2 }, { pincode: "678762", mainPlace: "PERIMBADARI", subPlaces: "CHANGALEERI", section: "A", side: "Left Side", col: 1, row: 3 }, { pincode: "678706", mainPlace: "VANDALI", subPlaces: "CHITTADI KARIMKAYAM MANGLAM DAM OLINKADAVU", section: "A", side: "Left Side", col: 2, row: 3 }, { pincode: "678102", mainPlace: "TATTAMANGLAM", subPlaces: "CHENTHAMARA NAGAR", section: "A", side: "Left Side", col: 3, row: 3 }, { pincode: "678591", mainPlace: "KANHIRAPUZHA", subPlaces: "IRUMBAKACHOLA PALAKAYAM", section: "A", side: "Left Side", col: 1, row: 4 }, { pincode: "678553", mainPlace: "NALLEPPILLY", subPlaces: "THEKKEDESAM", section: "A", side: "Left Side", col: 2, row: 4 }, { pincode: "678555", mainPlace: "KOZHINJAMPARA", subPlaces: "ERUTHENPATHI PALANIAR PALAYAM RV PUDUR VANNAMADA", section: "A", side: "Left Side", col: 3, row: 4 }, { pincode: "678598", mainPlace: "POTTASSERI", subPlaces: "POONCHOLA", section: "A", side: "Left Side", col: 1, row: 5 }, { pincode: "678622", mainPlace: "ELAPULLY", subPlaces: "ERATTAKULAM RAMASSERI TENARI VENGODI", section: "A", side: "Left Side", col: 2, row: 5 }, { pincode: "678581", mainPlace: "AGALI", subPlaces: "CHAVADIYUR JELLIPARA KARARA KAVUNDIKAL KOTTATHARA MATTATHUKKAD PUDUR SHOLAYUR", section: "A", side: "Left Side", col: 3, row: 5 }, { pincode: "678731", mainPlace: "PUDUPPARIYARAM", subPlaces: "INDUSTRIAL ESTATE", section: "A", side: "Front Side", col: 1, row: 1 }, { pincode: "678501", mainPlace: "KODUVAYUR", subPlaces: "THANINISSERI", section: "A", side: "Front Side", col: 2, row: 1 }, { pincode: "678013", mainPlace: "KUNNATHURMEDU", subPlaces: "SOUTH POLICE STATION", section: "A", side: "Front Side", col: 3, row: 1 }, { pincode: "678006", mainPlace: "PALLIPURAM", subPlaces: "MERCY COLLEGE", section: "A", side: "Front Side", col: 4, row: 1 }, { pincode: "678702", mainPlace: "COYALMANNA", subPlaces: "CHITHALI KALAPATTI KANNANUR NOCHULLI OLIVEMOUNT PERINKUNNU", section: "A", side: "Front Side", col: 1, row: 2 }, { pincode: "678506", mainPlace: "KOLLENGODE", subPlaces: "ALAMPALLAM ANAMARI NENMENI PANANGATIRI PAYYALUR VATTEKAD", section: "A", side: "Front Side", col: 2, row: 2 }, { pincode: "678012", mainPlace: "VADAKKANTHARA", subPlaces: "MOOTHANTHARA KAVILPADU", section: "A", side: "Front Side", col: 3, row: 2 }, { pincode: "678005", mainPlace: "CHERUPULASSERY NAGARAM", subPlaces: "KALLEPULLI", section: "A", side: "Front Side", col: 4, row: 2 }, { pincode: "678592", mainPlace: "MUNDUR", subPlaces: "NAMBULLIPURA NOCHUPULLI PUDUNUR VELIKAD", section: "A", side: "Front Side", col: 1, row: 3 }, { pincode: "678508", mainPlace: "NEMMARA", subPlaces: "CHANDRAMALA CHATHAMANGALAM ELAVANCHERI KANIMANGALAM PADAGIRI POTHUNDY DAM NELLIAMPATHY KIZHAKKUMURI SITHARKUNDA", section: "A", side: "Front Side", col: 2, row: 3 }, { pincode: "678009", mainPlace: " KALLEKULANGARA", subPlaces: "DHONI", section: "A", side: "Front Side", col: 3, row: 3 }, { pincode: "678004", mainPlace: "NURANI", subPlaces: "KODUNTHIRAPULLI PIRAYIRI TIRUNELLAYI", section: "A", side: "Front Side", col: 4, row: 3 }, { pincode: "678631", mainPlace: "KONGAD", subPlaces: "CHERAYA ELAKKAD MANIKASSERI MUCHEERI PARASSERI", section: "A", side: "Front Side", col: 1, row: 4 }, { pincode: "678101", mainPlace: "CHITTUR", subPlaces: "K K PATHY KUTTIPALLAM", section: "A", side: "Front Side", col: 2, row: 4 }, { pincode: "678008", mainPlace: "PALAKKAD ENGINEERING COLLEGE", subPlaces: "AKATHETHARA", section: "A", side: "Front Side", col: 3, row: 4 }, { pincode: "678003", mainPlace: "KALPATHY", subPlaces: "NEW KALPATHY", section: "A", side: "Front Side", col: 4, row: 4 }, { pincode: "678651", mainPlace: "MALAMPUZHA DAM", subPlaces: "ANAKKAL KADUKAMKUNNU", section: "A", side: "Front Side", col: 1, row: 5 }, { pincode: "678541", mainPlace: "ALATHUR HO", subPlaces: "SWATHI JUNCTION", section: "A", side: "Front Side", col: 2, row: 5 }, { pincode: "678007", mainPlace: "CHANDRANAGAR", subPlaces: "MARUTHAROAD PALLATHERI", section: "A", side: "Front Side", col: 3, row: 5 }, { pincode: "678002", mainPlace: "OLAVAKKODE HO", subPlaces: "OLAVAKODE", section: "A", side: "Front Side", col: 4, row: 5 }, { pincode: "678684", mainPlace: "KILAKANCHERI", subPlaces: "ELAVANPADAM KORANCHIRA MULANGOT PALAKUZHY", section: "A", side: "Right Side", col: 1, row: 1 }, { pincode: "678593", mainPlace: "TACHAMPARA", subPlaces: "MUTHUKURISSI THRIKALLUR VIYYAKURISSI", section: "A", side: "Right Side", col: 2, row: 1 }, { pincode: "678701", mainPlace: "KANNADI", subPlaces: "KINASSERI YAKKARA", section: "A", side: "Right Side", col: 3, row: 1 }, { pincode: "678683", mainPlace: "VADAKKANCHERI MBR", subPlaces: "AYAKKAD KANAKAMTHURUTHI PANNIMAKKARA", section: "A", side: "Right Side", col: 1, row: 2 }, { pincode: "678633", mainPlace: "KATAMPAZHIPURAM", subPlaces: "ALANGAD AZHIYANNUR KULAKATTUKURISSI KUNDUVAMPADAM MANNAMPATTA PUTHOOR VETTEKARA", section: "A", side: "Right Side", col: 2, row: 2 }, { pincode: "678551", mainPlace: "KOTAMBU", subPlaces: "KARINGARAPALLI OLASSERI THIRUVALATHUR", section: "A", side: "Right Side", col: 3, row: 2 }, { pincode: "678623", mainPlace: "Kanjikode West", subPlaces: "PUDUSSERI", section: "A", side: "Right Side", col: 1, row: 3 }, { pincode: "678601", mainPlace: "ALANALLUR", subPlaces: "BHIMANAD EDATHANATTUKARA KACEIRPAMBA KARKIDAMKUNNU TIRUVALAMKUNNU UPPUKULAM VATTAMANNANPURAM", section: "A", side: "Right Side", col: 2, row: 3 }, { pincode: "678595", mainPlace: "KARAKURISSI", subPlaces: "POMBIRA VAKKADAPURAM VAZHEMPURAM ELAMBULASSERI", section: "A", side: "Right Side", col: 3, row: 3 }, { pincode: "678621", mainPlace: "KANJIKODE", subPlaces: "PAMPAMPALLAM", section: "A", side: "Right Side", col: 1, row: 4 }, { pincode: "678583", mainPlace: "MANNARKAD COLLEGE", subPlaces: "ARIYUR CHETHALURR KANDAMANGALM KODAKKAD KOTTOPADAM PALLIKUNNU PALODE PAYYANADAM", section: "A", side: "Right Side", col: 2, row: 4 }, { pincode: "678596", mainPlace: "KALLADIKODE", subPlaces: "KANHIKULAM", section: "A", side: "Right Side", col: 3, row: 4 }, { pincode: "678014", mainPlace: "PALAKKAD CITY", subPlaces: "NORTH POLICE STATION", section: "A", side: "Right Side", col: 1, row: 5 }, { pincode: "678582", mainPlace: "MANNARKKAD", subPlaces: "CHINDAKKI KAITHACHIRA KALKANDI KALLAMALA MUKKALI PALOOR PULLISSERI TENKARA THAVALAM", section: "A", side: "Right Side", col: 2, row: 5 }, { pincode: "678001", mainPlace: "PALAKKAD HO", subPlaces: "SULTHANPET VICTORIA COLLEGE", section: "A", side: "Right Side", col: 3, row: 5 },
+         { pincode: "678705", mainPlace: "MUDAPALLUR", subPlaces: "", section: "B", side: "Left Side", col: 2, row: 1 }, { pincode: "678632", mainPlace: "PULAPATTA", subPlaces: "KONIKKAZHI UMMANAZHI", section: "B", side: "Left Side", col: 3, row: 1 }, { pincode: "678703", mainPlace: "MELARCODE", subPlaces: "CHERAMANGALAM", section: "B", side: "Left Side", col: 2, row: 2 }, { pincode: "678542", mainPlace: "PERINKULAM", subPlaces: "KATTUSSERI", section: "B", side: "Left Side", col: 3, row: 2 }, { pincode: "678505", mainPlace: "PALLASSANA", subPlaces: "", section: "B", side: "Left Side", col: 1, row: 3 }, { pincode: "678722", mainPlace: "TOLANUR", subPlaces: "", section: "B", side: "Left Side", col: 2, row: 3 }, { pincode: "678688", mainPlace: "PALLAVUR", subPlaces: "KUDALLUR", section: "B", side: "Left Side", col: 3, row: 3 }, { pincode: "678686", mainPlace: "KANNAMBRA", subPlaces: "PARUVASSERI", section: "B", side: "Left Side", col: 1, row: 4 }, { pincode: "678104", mainPlace: "CHITTUR COLLEGE", subPlaces: "", section: "B", side: "Left Side", col: 2, row: 4 }, { pincode: "678545", mainPlace: "PUDIYANKAM", subPlaces: "PULLODE", section: "B", side: "Left Side", col: 3, row: 4 }, { pincode: "678661", mainPlace: "PARAMBIKULAM", subPlaces: "TUNAKADAVU", section: "B", side: "Left Side", col: 2, row: 5 }, { pincode: "678704", mainPlace: "CHITTILANCHERI", subPlaces: "", section: "B", side: "Left Side", col: 3, row: 5 }, { pincode: "678611", mainPlace: "EDATHARA", subPlaces: "CHANDRASEKHARAPURAM", section: "B", side: "Front Side", col: 1, row: 1 }, { pincode: "678597", mainPlace: "KARIMBA", subPlaces: "MOONNEKAR", section: "B", side: "Front Side", col: 2, row: 1 }, { pincode: "678546", mainPlace: "ERIMAYUR", subPlaces: "", section: "B", side: "Front Side", col: 3, row: 1 }, { pincode: "678503", mainPlace: "PUDUNAGARAM", subPlaces: "KARIPODE", section: "B", side: "Front Side", col: 4, row: 1 }, { pincode: "678721", mainPlace: "KUTTANUR", subPlaces: "CHIMBUKAD", section: "B", side: "Front Side", col: 1, row: 2 }, { pincode: "678732", mainPlace: "KOTTEKAD", subPlaces: "", section: "B", side: "Front Side", col: 2, row: 2 }, { pincode: "678544", mainPlace: "PALAMPALAKODE", subPlaces: "ATHIPOTTA TARUR", section: "B", side: "Front Side", col: 3, row: 2 }, { pincode: "678504", mainPlace: "VADAVNNUR", subPlaces: "", section: "B", side: "Front Side", col: 4, row: 2 }, { pincode: "678571", mainPlace: "MATHUR", subPlaces: "THACHANGAD PALLANCHATHANUR", section: "B", side: "Front Side", col: 1, row: 3 }, { pincode: "678681", mainPlace: "KUNISSERI", subPlaces: "KOTTAALA", section: "B", side: "Front Side", col: 2, row: 3 }, { pincode: "678510", mainPlace: "AYALUR", subPlaces: "KAIRADY THIRUVAZHIAD", section: "B", side: "Front Side", col: 3, row: 3 }, { pincode: "678685", mainPlace: "MANNAPRA", subPlaces: "", section: "B", side: "Front Side", col: 1, row: 4 }, { pincode: "678573", mainPlace: "PARUTHIPULLY", subPlaces: "CHENNANGAD", section: "B", side: "Front Side", col: 2, row: 4 }, { pincode: "678682", mainPlace: "ANJUMOORTHY", subPlaces: "ERATTAKULAM THENNILAPURAM", section: "B", side: "Front Side", col: 3, row: 4 }, { pincode: "678507", mainPlace: "MUTHALAMADA", subPlaces: "GOVINDAPURAM MEENKARA DAM", section: "B", side: "Front Side", col: 4, row: 4 }, { pincode: "678687", mainPlace: "PUDUKODE", subPlaces: "MANAPPADAM THEKKEPOTTA", section: "B", side: "Front Side", col: 1, row: 5 }, { pincode: "678574", mainPlace: "PERINGOTTUKURISSI", subPlaces: "CHULANNUR NADUVATHUPARA", section: "B", side: "Front Side", col: 2, row: 5 }, { pincode: "678557", mainPlace: "KOZHIPARA", subPlaces: "OZHALAPATHY VELANTAHAVALAM", section: "B", side: "Front Side", col: 3, row: 5 }, { pincode: "678594", mainPlace: "MUTTIKULANGARA", subPlaces: "VALLIKODE", section: "B", side: "Front Side", col: 4, row: 5 }, { pincode: "678532", mainPlace: "PATTANCHERI", subPlaces: "KARIPPALI", section: "B", side: "Right Side", col: 1, row: 1 }, { pincode: "678554", mainPlace: "NATTUKAL", subPlaces: "ATHICODE", section: "B", side: "Right Side", col: 2, row: 1 }, { pincode: "678534", mainPlace: "VANDITHAVALAM", subPlaces: "KANNIMARI NANNIODE", section: "B", side: "Right Side", col: 3, row: 1 }, { pincode: "678531", mainPlace: "PERUVEMBA", subPlaces: "", section: "B", side: "Right Side", col: 1, row: 2 }, { pincode: "678552", mainPlace: "POLPULLI", subPlaces: "PANAYUR VERKOLI", section: "B", side: "Right Side", col: 2, row: 2 }, { pincode: "678533", mainPlace: "MEENAKSHIPURAM", subPlaces: "", section: "B", side: "Right Side", col: 3, row: 2 }, { pincode: "678011", mainPlace: "AMBIKAPURAM", subPlaces: "", section: "B", side: "Right Side", col: 1, row: 3 }, { pincode: "678671", mainPlace: "THENKURISSI", subPlaces: "VILAYANNUR", section: "B", side: "Right Side", col: 2, row: 3 }, { pincode: "678556", mainPlace: "MENONPARA", subPlaces: "ATTEMPATHY EDUPPUKULAM PARASSIKKAL", section: "B", side: "Right Side", col: 3, row: 3 }, { pincode: "678010", mainPlace: "SEKARIPURAM", subPlaces: "", section: "B", side: "Right Side", col: 1, row: 4 }, { pincode: "678103", mainPlace: "THEKKEGRAMAM", subPlaces: "VILAYODI", section: "B", side: "Right Side", col: 2, row: 4 }, { pincode: "678512", mainPlace: "KAKKAYUR", subPlaces: "", section: "B", side: "Right Side", col: 3, row: 4 }, { pincode: "678502", mainPlace: "ETTANUR", subPlaces: "MANNALUR VEMBALLUR", section: "B", side: "Right Side", col: 2, row: 5 }, { pincode: "678624", mainPlace: "WALAYAR DAM", subPlaces: "CHANDRAPURAM", section: "B", side: "Right Side", col: 3, row: 5 },
+         { pincode: "679551", mainPlace: "ANAKKARA", subPlaces: "", section: "C", side: "Left Side", col: 1, row: 1 }, { pincode: "679554", mainPlace: "KUDALLUR", subPlaces: "MALAMALKAVU", section: "C", side: "Left Side", col: 2, row: 1 }, { pincode: "679307", mainPlace: "PULASSERI", subPlaces: "KILMURI MANNENGODE MELMURI", section: "C", side: "Left Side", col: 3, row: 1 }, { pincode: "679308", mainPlace: "NADUVATTOM", subPlaces: "EDAPPALAM KAIPURAM NEDUNGOTTUR", section: "C", side: "Left Side", col: 1, row: 2 }, { pincode: "679552", mainPlace: "KUMARANALLUR", subPlaces: "ANGADI ERAVAKKAD KALLADATHUR KAPPUR", section: "C", side: "Left Side", col: 2, row: 2 }, { pincode: "679304", mainPlace: "THIRUVEGAPURA", subPlaces: "CHEMBRA VILATHUR", section: "C", side: "Left Side", col: 3, row: 2 }, { pincode: "679313", mainPlace: "KALLADIPATTA", subPlaces: "KONDURKARA", section: "C", side: "Left Side", col: 1, row: 3 }, { pincode: "679523", mainPlace: "KAVALAPPARA", subPlaces: "KOONATHARA MANNANUR", section: "C", side: "Left Side", col: 2, row: 3 }, { pincode: "679536", mainPlace: "CHALISSERI", subPlaces: "PERUMANNUR THANEERCODE", section: "C", side: "Left Side", col: 3, row: 3 }, { pincode: "679337", mainPlace: "KULUKALLUR", subPlaces: "CHUNDAMBATA MULAYANKAVU THATAHNAMPULLI", section: "C", side: "Left Side", col: 1, row: 4 }, { pincode: "679336", mainPlace: "VALLAPUZHA", subPlaces: "CHERUKODE CHOORAKODE KURUVATTUR", section: "C", side: "Left Side", col: 2, row: 4 }, { pincode: "679533", mainPlace: "KOOTTANAD", subPlaces: "NAGALASSERI NELLIKATTIRI THEKEVAVANNUR THIRUMITTAKODE", section: "C", side: "Left Side", col: 3, row: 4 }, { pincode: "679121", mainPlace: "SHORANUR", subPlaces: "PARUTHIPARA VADANAMKURISSI", section: "C", side: "Left Side", col: 1, row: 5 }, { pincode: "679122", mainPlace: "SG PRESS", subPlaces: "KALLIPADAM KULAPULLY KANAYAM KAYILIAD MUNDAKOTTUKURISSI", section: "C", side: "Left Side", col: 2, row: 5 }, { pincode: "679303", mainPlace: "PATTAMBI", subPlaces: "AMAYUR KIZHAYUR KODUMUNDA KOLIKOTTUSSERI MUTHUTHALA NHANGATTIRI PERUMUDIYUR SANKARAMANGALAM", section: "C", side: "Left Side", col: 3, row: 5 }, { pincode: "679553", mainPlace: "KUMBIDI", subPlaces: "", section: "C", side: "Front Side", col: 1, row: 1 }, { pincode: "679123", mainPlace: "GANESHGIRI", subPlaces: "KA SAMAJAM", section: "C", side: "Front Side", col: 2, row: 1 }, { pincode: "679521", mainPlace: "MANISSERI", subPlaces: "CHEROTTUR", section: "C", side: "Front Side", col: 3, row: 1 }, { pincode: "679301", mainPlace: "LAKKIDI", subPlaces: "MANGALAM", section: "C", side: "Front Side", col: 4, row: 1 }, { pincode: "679309", mainPlace: "VILAYUR", subPlaces: "", section: "C", side: "Front Side", col: 1, row: 2 }, { pincode: "679305", mainPlace: "PALLIPURAM", subPlaces: "PARUDUR KARAMBATHUR CHERUKUTANGAD", section: "C", side: "Front Side", col: 2, row: 2 }, { pincode: "679541", mainPlace: "V KULAM", subPlaces: "CHERUKATTUKULAM PAVUKONAM PANAYUR PATHANKULAM", section: "C", side: "Front Side", col: 3, row: 2 }, { pincode: "679302", mainPlace: "PERUR", subPlaces: "AKALUR GS SADAN", section: "C", side: "Front Side", col: 4, row: 2 }, { pincode: "679535", mainPlace: "PERINGODE", subPlaces: "CHAZHIATTIRI KOTHCHIRA PERINGANNUR CHATHANUR", section: "C", side: "Front Side", col: 1, row: 3 }, { pincode: "679335", mainPlace: "NELLAYA", subPlaces: "EZHUVANTHALA IRIMBALASSERI MARAYAMANGALAM POMBILAYA", section: "C", side: "Front Side", col: 4, row: 3 }, { pincode: "679534", mainPlace: "TRITHALA", subPlaces: "KOTTAPADAM MALA MEZHATHUR OTHALUR PATTITHARA THALAKASSERY", section: "C", "side": "Front Side", col: 1, row: 4 }, { pincode: "679338", mainPlace: "VENGASSERI", subPlaces: "", section: "C", side: "Front Side", col: 4, row: 4 }, { pincode: "679306", mainPlace: "MELEPATTAMBI", subPlaces: "MARUTHUR", section: "C", side: "Front Side", col: 1, row: 5 }, { pincode: "679538", mainPlace: "KADAMBUR", subPlaces: "", section: "C", side: "Front Side", col: 4, row: 5 }, { pincode: "679101", mainPlace: "OTP HO", subPlaces: "", section: "C", side: "Right Side", col: 1, row: 1 }, { pincode: "679501", mainPlace: "PANAMANNA", subPlaces: "AMBALAVATTOM CHERAMBATTAKAVU KIZHUR MELUR THARUVAKONAM", section: "C", side: "Right Side", col: 2, row: 1 }, { pincode: "679514", mainPlace: "TIRUVAZHIODE", subPlaces: "KALLUVAZHI KATTUKULAM KUTTANASSERI TN PURAM", section: "C", side: "Right Side", col: 3, row: 1 }, { pincode: "679102", mainPlace: "THOTTAKARA", subPlaces: "VARODE OTP VEETAMPARA", section: "C", side: "Right Side", col: 1, row: 2 }, { pincode: "679502", mainPlace: "TRIKKADIRI", subPlaces: "MUNNURKODE", section: "C", side: "Right Side", col: 2, row: 2 }, { pincode: "679513", mainPlace: "SK PURAM", subPlaces: "ATTASSERI KARIMPUZHA KOTTAPURAM VALAMPILIMANGALAM", section: "C", side: "Right Side", col: 3, row: 2 }, { pincode: "678103", mainPlace: "PALAPPURAM", subPlaces: "SRK NAGAR", section: "C", side: "Right Side", col: 1, row: 3 }, { pincode: "679503", mainPlace: "CHERPULACHERI", subPlaces: "ADAKKAPUTHUR KARATTUKURISSI KULAKKAD MANGODE PANNIAMKURISSI VEERAMANGALAM", section: "C", side: "Right Side", col: 2, row: 3 }, { pincode: "679512", mainPlace: "AMBALAPARA", subPlaces: "CHERUMUNDASSERI", section: "C", side: "Right Side", col: 3, row: 3 }, { pincode: "679104", mainPlace: "KANNIAMPURAM", subPlaces: "", section: "C", side: "Right Side", col: 1, row: 4 }, { pincode: "679504", mainPlace: "VELLINEZHI", subPlaces: "KARUMANAKURISSI", section: "C", side: "Right Side", col: 2, row: 4 }, { pincode: "679511", mainPlace: "CHUNANGAD", subPlaces: "MULANNUR", section: "C", side: "Right Side", col: 3, row: 4 }, { pincode: "679505", mainPlace: "CHALAVARA", subPlaces: "PULIYANAMKUNNU", section: "C", side: "Right Side", col: 2, row: 5 }, { pincode: "679506", mainPlace: "KARALMANNA", subPlaces: "THEKKUMMURI", section: "C", side: "Right Side", col: 3, row: 5 }
+        ];
+
+        // --- NEW: DATA (EXPRESS SECTION) ---
+        const expressData = [
+            { office: "KASARAGODE STG/ICH", rules: [{ type: 'prefix', value: '671' }] },
+            { office: "KANNUR RMS/NSH", rules: [{ type: 'prefix', value: '670' }] },
+            { office: "KOZHIKODE RMS/NSH", rules: [{ type: 'prefix', value: '673' }] },
+            { office: "TIRUR RMS/ICH", rules: [
+                { type: 'prefix', value: '676' },
+                { type: 'range', min: 679321, max: 679334 },
+                { type: 'range', min: 679338, max: 679341 },
+                { type: 'single', value: 679357 },
+                { type: 'range', min: 679571, max: 679591 },
+                { type: 'single', value: 673314 }
+            ]},
+            { office: "THRISSUR RMS/NSH", rules: [
+                { type: 'prefix', value: '680' },
+                { type: 'single', value: 679105 },
+                { type: 'single', value: 679106 },
+                { type: 'single', value: 679531 },
+                { type: 'single', value: 679532 },
+                { type: 'range', min: 679561, max: 679564 }
+            ]},
+            { office: "KOCHI STG/NSH", rules: [
+                { type: 'prefix', value: '682' },
+                { type: 'prefix', value: '683' },
+                { type: 'single', value: 686664 },
+                { type: 'single', value: 686666 },
+                { type: 'single', value: 686681 },
+                { type: 'single', value: 686691 },
+                { type: 'single', value: 686692 },
+                { type: 'single', value: 686693 }
+            ]},
+            { office: "THODUPUZHA STG/ICH", rules: [
+                { type: 'prefix', value: '685' },
+                { type: 'range', min: 686660, max: 686663 },
+                { type: 'single', value: 686665 },
+                { type: 'range', min: 686667, max: 686673 }
+            ]},
+            { office: "ALAPPUZHA RMS/ICH", rules: [{ type: 'prefix', value: '688' }] },
+            { office: "KOTTAYAM RMS/ICH", rules: [
+                { type: 'range', min: 686000, max: 686599 }, // Handles 6860XX - 6865XX
+                { type: 'range', min: 686601, max: 686616 },
+                { type: 'range', min: 686630, max: 686637 },
+                { type: 'range', min: 686651, max: 686653 }
+            ]},
+            { office: "TIRUVALLA RMS/ICH", rules: [
+                { type: 'prefix', value: '689' },
+                { type: 'single', value: 686547 }
+            ]},
+            { office: "KOLLAM RMS/ICH", rules: [
+                { type: 'prefix', value: '690' },
+                { type: 'prefix', value: '691' }
+            ]},
+            { office: "TRIVANDRUM RMS/NSH", rules: [{ type: 'prefix', value: '695' }] },
+        ];
+
+
+        // --- SCRIPT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchInput');
+            const resultsDiv = document.getElementById('results');
+            const suggestionsBox = document.getElementById('suggestionsBox');
+            const imageUpload = document.getElementById('imageUpload');
+            const ocrStatus = document.getElementById('ocr-status');
+            const googleSearchBtn = document.getElementById('googleSearchBtn');
+
+            const fuseOptions = {
+                keys: ['mainPlace', 'subPlaces', 'pincode'],
+                includeScore: true,
+                includeMatches: true, 
+                threshold: 0.4
+            };
+            const fuse = new Fuse(sortingData, fuseOptions);
+
+            const toOrdinal = (num) => {
+                const s = ["th", "st", "nd", "rd"];
+                const v = num % 100;
+                return num + (s[(v - 20) % 10] || s[v] || s[0]);
+            };
+
+            const findExpressOffice = (pincodeStr) => {
+                const pincodeNum = parseInt(pincodeStr, 10);
+                for (const item of expressData) {
+                    for (const rule of item.rules) {
+                        switch (rule.type) {
+                            case 'prefix':
+                                if (pincodeStr.startsWith(rule.value)) return item.office;
+                                break;
+                            case 'range':
+                                if (pincodeNum >= rule.min && pincodeNum <= rule.max) return item.office;
+                                break;
+                            case 'single':
+                                if (pincodeNum === rule.value) return item.office;
+                                break;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const displayResults = (items, query) => {
+                resultsDiv.innerHTML = ''; 
+
+                // PRIORITY 1: Check for Palakkad RMS (Section A/B/C) results first
+                if (items.length > 0) {
+                    const item = items[0].item;
+                    const gridDimensions = {
+                        "A-Left Side": { cols: 3, rows: 5 }, "A-Front Side": { cols: 4, rows: 5 }, "A-Right Side": { cols: 3, rows: 5 },
+                        "B-Left Side": { cols: 3, rows: 5 }, "B-Front Side": { cols: 4, rows: 5 }, "B-Right Side": { cols: 3, rows: 5 },
+                        "C-Left Side": { cols: 3, rows: 5 }, "C-Front Side": { cols: 4, rows: 5 }, "C-Right Side": { cols: 3, rows: 5 }
+                    };
+                    let visualGuideHTML = '';
+                    const gridKey = `${item.section}-${item.side}`;
+                    const dims = gridDimensions[gridKey];
+                    if (dims) {
+                        const sideClass = 'grid-' + item.side.toLowerCase().replace(' ', '-');
+                        visualGuideHTML = `<div class="visual-guide"><strong>${item.section} - ${item.side}</strong><div class="grid-container ${sideClass}" style="grid-template-columns: repeat(${dims.cols}, 1fr);">`;
+                        for (let r = 1; r <= dims.rows; r++) {
+                            for (let c = 1; c <= dims.cols; c++) {
+                                if (r === item.row && c === item.col) {
+                                    visualGuideHTML += `<div class="grid-cell highlight">📭</div>`;
+                                } else {
+                                    visualGuideHTML += `<div class="grid-cell"></div>`;
+                                }
+                            }
+                        }
+                        visualGuideHTML += `</div></div>`;
+                    }
+
+                    const resultHTML = `
+                        <div class="result-item">
+                            <span class="location">${item.pincode} - ${item.mainPlace}</span>
+                            Section ${item.section} ${item.side} - ${toOrdinal(item.col)} column, ${toOrdinal(item.row)} row
+                            ${visualGuideHTML}
+                        </div>
+                    `;
+                    resultsDiv.innerHTML = resultHTML;
+                    return; // Exit function since we found a result
+                }
+
+                // PRIORITY 2: If no Palakkad RMS match, check for Express section if query is a pincode
+                const pincodeRegex = /^\d{6}$/;
+                if (pincodeRegex.test(query)) {
+                    const expressOffice = findExpressOffice(query);
+                    if (expressOffice) {
+                        resultsDiv.innerHTML = `
+                            <div class="result-item" style="color: #0056b3;">
+                                Express - ${expressOffice}
+                            </div>
+                        `;
+                        return; // Exit function, Express office found
+                    }
+                }
+                
+                // PRIORITY 3: If no match at all, show "not found" or initial message
+                if (query && query.trim().length > 1) {
+                    resultsDiv.innerHTML = `
+                        <div class="result-item">
+                            <div class="error">'${query}' not found in local list.</div>
+                        </div>
+                    `;
+                } else {
+                     resultsDiv.innerHTML = '<p class="initial-message">Your sorting location will appear here.</p>';
+                }
+            };
+            
+            const performSearch = (query) => {
+                if (!query) return [];
+                return fuse.search(query);
+            };
+
+            const updateSuggestions = (items) => {
+                suggestionsBox.innerHTML = '';
+                if (items.length === 0) {
+                    suggestionsBox.style.display = 'none';
+                    return;
+                }
+
+                items.slice(0, 7).forEach(result => {
+                    const item = result.item;
+                    const matches = result.matches;
+                    let displayPlace = item.mainPlace;
+                    if (matches && matches.length > 0) {
+                        const topMatch = matches[0];
+                        if (topMatch.key === 'subPlaces' && item.subPlaces) {
+                            displayPlace = `${item.mainPlace} <small>(${item.subPlaces})</small>`;
+                        }
+                    }
+                    const div = document.createElement('div');
+                    div.classList.add('suggestion-item');
+                    div.innerHTML = `<span class="pincode">${item.pincode}</span> - <span class="place">${displayPlace}</span>`;
+                    div.addEventListener('click', () => {
+                        searchInput.value = item.pincode;
+                        // Manually trigger input event to use exact search logic
+                        searchInput.dispatchEvent(new Event('input'));
+                    });
+                    suggestionsBox.appendChild(div);
+                });
+                suggestionsBox.style.display = 'block';
+            };
+
+            // --- MODIFIED: Main event listener with new logic ---
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value;
+                const isPincode = /^\d{6}$/.test(query);
+
+                if (isPincode) {
+                    // --- EXACT Pincode Logic ---
+                    updateSuggestions([]); // Clear and hide suggestions
+
+                    // 1. Check Palakkad RMS data for an EXACT match
+                    const exactMatch = sortingData.find(d => d.pincode === query);
+                    if (exactMatch) {
+                        // Mimic Fuse.js result structure for displayResults
+                        displayResults([{ item: exactMatch }], query);
+                        return;
+                    }
+
+                    // 2. If not in Palakkad, check Express data.
+                    // Call displayResults with no items, it will handle the express check.
+                    displayResults([], query);
+
+                } else {
+                    // --- FUZZY Text Search Logic (original behavior) ---
+                    if (query.trim() === '') {
+                        updateSuggestions([]);
+                        displayResults([], query);
+                    } else {
+                        const matches = performSearch(query);
+                        updateSuggestions(matches);
+                        displayResults(matches, query);
+                    }
+                }
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (e.target !== searchInput) {
+                    suggestionsBox.style.display = 'none';
+                }
+            });
+
+            imageUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX_WIDTH = 1000;
+                        const scale = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scale;
+                        
+                        ctx.filter = 'grayscale(100%)';
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        processImageWithTesseract(canvas);
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            });
+
+            async function processImageWithTesseract(imageSource) {
+                ocrStatus.textContent = 'Initializing OCR...';
+                
+                try {
+                    const worker = await Tesseract.createWorker('eng', 1, {
+                        logger: m => {
+                           if (m.status === 'recognizing text') {
+                               ocrStatus.textContent = `Reading image... ${Math.round(m.progress * 100)}%`;
+                           } else {
+                               ocrStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1) + '...';
+                           }
+                        }
+                    });
+
+                    const { data: { text } } = await worker.recognize(imageSource);
+                    await worker.terminate();
+
+                    ocrStatus.textContent = 'Text extracted. Searching...';
+                    
+                    let foundTerm = '';
+                    const ocrText = text.toLowerCase();
+                    const pincodeMatch = ocrText.match(/\b\d{6}\b/);
+
+                    if (pincodeMatch) {
+                        foundTerm = pincodeMatch[0];
+                    } else {
+                        // This fallback is fuzzy and might be less useful with the new exact search logic,
+                        // but we keep it for non-pincode text recognition.
+                        let foundItem = null;
+                        for (const location of sortingData) {
+                            if (ocrText.includes(location.mainPlace.toLowerCase())) {
+                                foundItem = location;
+                                break;
+                            }
+                            if (location.subPlaces) {
+                                const subPlaceKeywords = location.subPlaces.toLowerCase().split(' ');
+                                if (subPlaceKeywords.some(keyword => keyword.length > 2 && ocrText.includes(keyword))) {
+                                    foundItem = location;
+                                    break;
+                                }
+                            }
+                        }
+                        if (foundItem) {
+                            foundTerm = foundItem.pincode;
+                        }
+                    }
+                    
+                    if (foundTerm) {
+                        searchInput.value = foundTerm;
+                        // Manually trigger the 'input' event to use our new logic
+                        searchInput.dispatchEvent(new Event('input'));
+                        ocrStatus.textContent = `Found: ${foundTerm}. Displaying result.`;
+                    } else {
+                        ocrStatus.textContent = 'Could not find a valid pincode or place name in the image.';
+                        resultsDiv.innerHTML = '<p class="initial-message">Your sorting location will appear here.</p>';
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    ocrStatus.textContent = 'An error occurred during OCR.';
+                }
+            }
+
+            googleSearchBtn.addEventListener('click', () => {
+                const query = searchInput.value;
+                if (query && query.trim().length > 0) {
+                    const encodedQuery = encodeURIComponent(query);
+                    const searchUrl = `https://www.google.com/search?q=${encodedQuery}+pincode`;
+                    window.open(searchUrl, '_blank');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
